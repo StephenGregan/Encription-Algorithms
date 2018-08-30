@@ -1,0 +1,2 @@
+C:\Users\Ronan\source\repos\EncryptionAlgorithms\EncryptionAlgorithms\obj\Debug\EncryptionAlgorithms.csprojResolveAssemblyReference.cache
+C:\Users\Ronan\source\repos\EncryptionAlgorithms\EncryptionAlgorithms\obj\Debug\EncryptionAlgorithms.csproj.CoreCompileInputs.cache
