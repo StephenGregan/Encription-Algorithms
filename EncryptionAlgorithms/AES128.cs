@@ -190,23 +190,23 @@ namespace EncryptionAlgorithms
         };
 
         private const int Nr = 10;
-        private const int Nk = 4; // 
-        private const int Nb = 4; // 
-        private const int keySize = 16; // 
+        private const int Nk = 4; // size 1 word = 4 bytes
+        private const int Nb = 4; // Information block = 4 words, one word = 32 bits(32 * 4 = 128 bits)
+        private const int keySize = 16; // the size of the secret key = 16 bytes or 4 words(16 * 8 = 128 bits)
 
         private byte[] secretKey;
-        private byte[] raundKeys; // 
+        private byte[] roundKeys; // the size of each round key = 4 words or 4 * 4 = 16 bytes
 
         public AES128()
         {
             secretKey = new byte[keySize];
-            raundKeys = new byte[(Nr + 1) * Nb * Nk];
+            roundKeys = new byte[(Nr + 1) * Nb * Nk];
 
             GenerateSecretKey();
         }
 
         /// <summary>
-        /// 
+        /// Expands the keys, that is creates round keys on the secret
         /// </summary>
         public void GenerateRaundKeys()
         {
@@ -214,42 +214,47 @@ namespace EncryptionAlgorithms
 
             for (i = 0; i < keySize; i++)
             {
-                raundKeys[i] = secretKey[i];
+                roundKeys[i] = secretKey[i];
             }
 
-            for (; i < raundKeys.Length; i += Nb)
+            for (; i < roundKeys.Length; i += Nb)
             {
                 if ((i / Nb) % keySize == 0)
                 {
                     byte[] previousWord = new byte[Nb];
-                    previousWord[0] = raundKeys[i - Nb];
-                    previousWord[1] = raundKeys[i - Nb + 1];
-                    previousWord[2] = raundKeys[i - Nb + 2];
-                    previousWord[3] = raundKeys[i - Nb + 3];
+                    previousWord[0] = roundKeys[i - Nb];
+                    previousWord[1] = roundKeys[i - Nb + 1];
+                    previousWord[2] = roundKeys[i - Nb + 2];
+                    previousWord[3] = roundKeys[i - Nb + 3];
 
                     byte[] previousKeyWord = new byte[Nb];
-                    previousKeyWord[0] = raundKeys[i - Nb * Nb];
-                    previousKeyWord[1] = raundKeys[i - Nb * Nb + 1];
-                    previousKeyWord[2] = raundKeys[i - Nb * Nb + 2];
-                    previousKeyWord[3] = raundKeys[i - Nb * Nb + 3];
+                    previousKeyWord[0] = roundKeys[i - Nb * Nb];
+                    previousKeyWord[1] = roundKeys[i - Nb * Nb + 1];
+                    previousKeyWord[2] = roundKeys[i - Nb * Nb + 2];
+                    previousKeyWord[3] = roundKeys[i - Nb * Nb + 3];
 
                     byte[] currentword = XorWords(XorWords(SubWord(RotateWord(previousWord)), GetRCon(i / (Nb * Nb))), previousKeyWord);
 
                     for (int j = 0; j < Nb; j++)
                     {
-                        raundKeys[i + j] = currentword[j];
+                        roundKeys[i + j] = currentword[j];
                     }
                 }
                 else
                 {
                     for (int j = 0; j < Nb; j++)
                     {
-                        raundKeys[i + j] = (byte)(raundKeys[i + j - Nb] ^ raundKeys[i + j - secretKey.Length]);
+                        roundKeys[i + j] = (byte)(roundKeys[i + j - Nb] ^ roundKeys[i + j - secretKey.Length]);
                     }
                 }
             }
         }
 
+        /// <summary>
+        /// Encrypts a file
+        /// </summary>
+        /// <param name="source">Input file</param>
+        /// <param name="destination">Encrypted file</param>
         public void EncipherFile(string source, string destination)
         {
             byte[] bytesToEncipher;
@@ -269,10 +274,10 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Decrypts the file
         /// </summary>
-        /// <param name="source"></param>
-        /// <param name="destination"></param>
+        /// <param name="source">Encrypted file</param>
+        /// <param name="destination">Decrypted file</param>
         public void DecipherFile(string source, string destination)
         {
             byte[] bytesToDecipher;
@@ -292,9 +297,9 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Encodes a message of any length, transmitted in bytes
         /// </summary>
-        /// <param name="message"></param>
+        /// <param name="message">Transmitted message</param>
         /// <returns></returns>
         private byte[] EncipherMessage(byte[] message)
         {
@@ -329,10 +334,10 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Decrypts a message of any length
         /// </summary>
-        /// <param name="message"></param>
-        /// <returns></returns>
+        /// <param name="message">Encrypted message</param>
+        /// <returns>Decoded message</returns>
         private byte[] DecipherMessage(byte[] message)
         {
             byte[] decipheredMessage = new byte[message.Length];
@@ -360,10 +365,10 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Trims a block array when decrypting
         /// </summary>
-        /// <param name="array"></param>
-        /// <returns></returns>
+        /// <param name="array">Data block</param>
+        /// <returns>Abbreviated data block</returns>
         private byte[] DecipherShorter(byte[] array)
         {
             if (array.Length > 0)
@@ -401,7 +406,7 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Copies from the array of data starting at the specified index, 16 bytes(4 words) = the size of one data block
         /// </summary>
         /// <param name="index"></param>
         /// <param name="message"></param>
@@ -447,14 +452,15 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Encripts a 128-bit data block
         /// </summary>
-        /// <returns></returns>
+        /// <param name="blockData">Data block</param>
+        /// <returns>Encrypted data block</returns>
         private byte[] EncipherDataBlock(byte[] blockData)
         {
             byte[,] encipheredBlockData = FormMatrixFromArray(blockData);
 
-            byte[,] K0 = GetRaundKey(0);
+            byte[,] K0 = GetRoundKey(0);
 
             XORBlockDataWithKey(encipheredBlockData, K0);
 
@@ -468,7 +474,7 @@ namespace EncryptionAlgorithms
                     encipheredBlockData = MixColumns(encipheredBlockData);
                 }
 
-                byte[,] Ki = GetRaundKey(i * keySize);
+                byte[,] Ki = GetRoundKey(i * keySize);
                 XORBlockDataWithKey(encipheredBlockData, Ki);
             }
 
@@ -476,22 +482,22 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Decrypts a 128-bit data block
         /// </summary>
-        /// <param name="blockData"></param>
-        /// <returns></returns>
+        /// <param name="blockData">Data block</param>
+        /// <returns>Decrypted data block</returns>
         private byte[] DecipherDataBlock(byte[] blockData)
         {
             byte[,] decipheredBlockData = FormMatrixFromArray(blockData);
 
-            byte[,] KN = GetRaundKey(Nr * keySize);
+            byte[,] KN = GetRoundKey(Nr * keySize);
             XORBlockDataWithKey(decipheredBlockData, KN);
 
             for (int i = Nr - 1; i >= 0; i--)
             {
                 ShiftRowsRight(decipheredBlockData);
                 InvSubBytes(decipheredBlockData);
-                byte[,] Ki = GetRaundKey(i * keySize);
+                byte[,] Ki = GetRoundKey(i * keySize);
                 XORBlockDataWithKey(decipheredBlockData, Ki);
 
                 if (i != 0)
@@ -504,10 +510,10 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Forms a matrix from an array
         /// </summary>
-        /// <param name="array"></param>
-        /// <returns></returns>
+        /// <param name="array">Array</param>
+        /// <returns>Matrix</returns>
         private byte[,] FormMatrixFromArray(byte[] array)
         {
             byte[,] matrix = new byte[Nk, Nb];
@@ -524,11 +530,11 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Forms an array of a given size from the matrix
         /// </summary>
-        /// <param name="matrix"></param>
-        /// <param name="arraySize"></param>
-        /// <returns></returns>
+        /// <param name="matrix">Matrix</param>
+        /// <param name="arraySize">The size of the array</param>
+        /// <returns>Array</returns>
         private byte[] FormArrayFromMatrix(byte[,] matrix, int arraySize)
         {
             byte[] array = new byte[arraySize];
@@ -545,7 +551,7 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Shifts the rows of the matrix, starting from the first, to the left
         /// </summary>
         /// <param name="blockData"></param>
         private void ShiftRowsLeft(byte[,] blockData)
@@ -567,7 +573,7 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Shifts the rows of the matrix, starting from the first, to the right
         /// </summary>
         /// <param name="blockData"></param>
         private void ShiftRowsRight(byte[,] blockData)
@@ -589,10 +595,10 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Stirring columns inside the data matrix
         /// </summary>
-        /// <param name="blockData"></param>
-        /// <returns></returns>
+        /// <param name="blockData">Data Matrix</param>
+        /// <returns>Data Matrix with Mixed Columns</returns>
         private byte[,] MixColumns(byte[,] blockData)
         {
             byte[,] result = new byte[Nk,Nb];
@@ -631,10 +637,10 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Backs up the columns in the data matrix
         /// </summary>
-        /// <param name="blockData"></param>
-        /// <returns></returns>
+        /// <param name="blockData">Data Matrix</param>
+        /// <returns>Data Matrix with Mixed Columns</returns>
         private byte[,] InvMixColumns(byte[,] blockData)
         {
             byte[,] result = new byte[Nk, Nb];
@@ -673,11 +679,11 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Multiply 2 bytes in the Galois Field
         /// </summary>
-        /// <param name="firstByte"></param>
-        /// <param name="secondByte"></param>
-        /// <returns></returns>
+        /// <param name="firstByte">First byte</param>
+        /// <param name="secondByte">Second byte</param>
+        /// <returns>Multiplication result</returns>
         private byte MultGalua(byte firstByte, byte secondByte)
         {
             byte resultByte = 0;
@@ -711,11 +717,11 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Selects a column from the matrix by index
         /// </summary>
-        /// <param name="blockData"></param>
-        /// <param name="columnNumber"></param>
-        /// <returns></returns>
+        /// <param name="blockData">Data Matrix</param>
+        /// <param name="columnNumber">Column Number</param>
+        /// <returns>Column</returns>
         private byte[] GetColumnFromMatrix(byte[,] blockData, int columnNumber)
         {
             byte[] column = new byte[Nk];
@@ -729,9 +735,9 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Replaces bats in the data matrix with the corresponding ones from the STable table
         /// </summary>
-        /// <param name="blockData"></param>
+        /// <param name="blockData">Data Matrix</param>
         private void SubBytes(byte[,] blockData)
         {
             for (int i = 0; i < Nk; i++)
@@ -744,9 +750,9 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Replaces bats in the data matrix with the corresponding ones from the InvSTable table
         /// </summary>
-        /// <param name="blockData"></param>
+        /// <param name="blockData">Data Matrix</param>
         private void InvSubBytes(byte[,] blockData)
         {
             for (int i = 0; i < Nk; i++)
@@ -759,10 +765,10 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Performs an XOR operation of a data block with a key
         /// </summary>
-        /// <param name="blockData"></param>
-        /// <param name="key"></param>
+        /// <param name="blockData">Data block</param>
+        /// <param name="key">Key</param>
         private void XORBlockDataWithKey(byte[,] blockData, byte[,] key)
         {
             for (int i = 0;i < Nk; i++)
@@ -775,11 +781,11 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Returns the round key from the key array corresponding to the specified index
         /// </summary>
-        /// <param name="index"></param>
-        /// <returns></returns>
-        private byte[,] GetRaundKey(int index)
+        /// <param name="index">Key index</param>
+        /// <returns>Round key</returns>
+        private byte[,] GetRoundKey(int index)
         {
             byte[,] key = new byte[Nk, Nb];
 
@@ -787,7 +793,7 @@ namespace EncryptionAlgorithms
             {
                 for (int j = 0; j < Nb; j++)
                 {
-                    key[i, j] = raundKeys[Nb * j + i + index];
+                    key[i, j] = roundKeys[Nb * j + i + index];
                 }
             }
 
@@ -795,7 +801,7 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Generates a random key randomly
         /// </summary>
         private void GenerateSecretKey()
         {
@@ -804,10 +810,10 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Performs a circular shift
         /// </summary>
-        /// <param name="word"></param>
-        /// <returns></returns>
+        /// <param name="word">Word</param>
+        /// <returns>Cyclically shifted new word</returns>
         private byte[] RotateWord(byte[] word)
         {
             byte[] rotateWord = new byte[word.Length];
@@ -821,10 +827,10 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Replaces the bits in the data block with the corresponding one.bytes from the table STable
         /// </summary>
-        /// <param name="word"></param>
-        /// <returns></returns>
+        /// <param name="word">Data block</param>
+        /// <returns>New data block</returns>
         private byte[] SubWord(byte[] word)
         {
             byte[] subWord = new byte[word.Length];
@@ -838,30 +844,30 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Gets the byte from the STable table, respectively.the specified byte
         /// </summary>
-        /// <param name="symbol"></param>
-        /// <returns></returns>
+        /// <param name="symbol">Input byte</param>
+        /// <returns>Corresponding byte from the table STable</returns>
         private byte GetByteFromSTable(byte symbol)
         {
             return STable[symbol / 16, symbol % 16];
         }
 
         /// <summary>
-        /// 
+        /// Gets the byte from the InvSTable table, respectively.the specified byte
         /// </summary>
-        /// <param name="symbol"></param>
-        /// <returns></returns>
+        /// <param name="symbol">Input byte</param>
+        /// <returns>Corresponding bytes from the InvSTable table</returns>
         private byte GetByteFromInvSTable(byte symbol)
         {
             return STable[symbol / 16, symbol % 16];
         }
 
         /// <summary>
-        /// 
+        /// Getting a column from the RCon table at a given index
         /// </summary>
-        /// <param name="index"></param>
-        /// <returns></returns>
+        /// <param name="index">Column Index</param>
+        /// <returns>Column</returns>
         private byte[] GetRCon(int index)
         {
             byte[] array = new byte[Nb];
@@ -875,11 +881,11 @@ namespace EncryptionAlgorithms
         }
 
         /// <summary>
-        /// 
+        /// Performs an XOR operation with two byte arrays
         /// </summary>
-        /// <param name="firstWord"></param>
-        /// <param name="secondWord"></param>
-        /// <returns></returns>
+        /// <param name="firstWord">The first array</param>
+        /// <param name="secondWord">The second earray</param>
+        /// <returns>The result of the XOR operation</returns>
         private byte[] XorWords(byte[] firstWord, byte[] secondWord)
         {
             byte[] resultWord = new byte[firstWord.Length];

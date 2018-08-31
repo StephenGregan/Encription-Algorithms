@@ -42,11 +42,9 @@ namespace EncryptionAlgorithms
             Int64 D = ExtendedEuclid(E, M);
             // How this is written is personal preference.
             // First way.
-            RSAKey publicKey = new RSAKey
-            {
-                Data = E,
-                N = N
-            };
+            RSAKey publicKey = new RSAKey();
+            publicKey.Data = E;
+            publicKey.N = N;
 
             // How this is written is personal preference.
             // Second way.
@@ -182,12 +180,43 @@ namespace EncryptionAlgorithms
 
         public void Decrypt(string sourceFileName, string destinationFileName, string keyFileName)
         {
+            RSAKey privateKey = KeyFileReader.ReadKey(keyFileName);
+            FileStream sourceFileStream = new FileStream(sourceFileName, FileMode.Open);
+            FileStream destinationFileStream = new FileStream(destinationFileName, FileMode.Create);
 
+            using (BinaryWriter binaryWriter = new BinaryWriter(destinationFileStream))
+            {
+                using (BinaryReader binaryReader = new BinaryReader(sourceFileStream))
+                {
+                    while (binaryReader.BaseStream.Position != binaryWriter.BaseStream.Length)
+                    {
+                        binaryWriter.Write(Convert.ToByte(PowModFast((int)binaryReader.ReadInt64(), privateKey.Data, privateKey.N)));
+                    }
+                }
+            }
+
+            sourceFileStream.Close();
+            destinationFileStream.Close();
         }
 
         private Int64 EuclidsAlgorithm(Int64 firstNumber, Int64 secondNumber)
         {
+            Int64 tmpFirstNumber = firstNumber;
+            Int64 tmpSecondNumber = secondNumber;
 
+            while (tmpFirstNumber != 0 && tmpSecondNumber != 0)
+            {
+                if (tmpFirstNumber > tmpSecondNumber)
+                {
+                    tmpFirstNumber = tmpFirstNumber % tmpSecondNumber;
+                }
+                else
+                {
+                    tmpSecondNumber = tmpSecondNumber & tmpFirstNumber;
+                }
+            }
+
+            return tmpFirstNumber + tmpSecondNumber;
         }
 
         private Int64 PowModFast(int symbol, Int64 key, Int64 n)
@@ -209,8 +238,5 @@ namespace EncryptionAlgorithms
 
             return r;
         }
-
-
-
     }
 }
