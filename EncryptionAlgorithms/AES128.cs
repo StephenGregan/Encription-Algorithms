@@ -208,7 +208,7 @@ namespace EncryptionAlgorithms
         /// <summary>
         /// Expands the keys, that is creates round keys on the secret
         /// </summary>
-        public void GenerateRaundKeys()
+        public void GenerateRoundKeys()
         {
             int i = 0;
 
@@ -315,7 +315,7 @@ namespace EncryptionAlgorithms
             }
 
             byte[] encipheredMessage = new byte[arraySize];
-            GenerateRaundKeys();
+            GenerateRoundKeys();
 
             for (int i = 0; i < arraySize; i += keySize)
             {
@@ -341,7 +341,8 @@ namespace EncryptionAlgorithms
         private byte[] DecipherMessage(byte[] message)
         {
             byte[] decipheredMessage = new byte[message.Length];
-            GenerateRaundKeys();
+
+            GenerateRoundKeys();
 
             for (int i = 0; i < decipheredMessage.Length; i += keySize)
             {

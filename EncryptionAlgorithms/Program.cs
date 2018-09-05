@@ -41,7 +41,7 @@ namespace EncryptionAlgorithms
                     string fileNameEncypt = Console.ReadLine();
 
                     AES128 aes128 = new AES128();
-                    aes128.GenerateRaundKeys();
+                    aes128.GenerateRoundKeys();
                     aes128.EncipherFile(fileNameSource, fileNameEncypt);
 
                     Console.WriteLine("File encrypted");
